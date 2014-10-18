@@ -1,12 +1,30 @@
 var http = require('http');
-var timers = require('timers');
+var AWS = require('aws-sdk');
+var path = require('path');
+AWS.config.loadFromPath(path.join(__dirname, './config.json'));
 
-if (process.send) timers.setInterval(function () {process.send("beat");}, 1000);
+module.exports = function(port, hostname) {
+    http.createServer(function (req, res) {
+        if (req.url.match(/^\/(index\.html?)?$/)) {
+            res.writeHead(200, {'Content-Type': 'text/plain'});
+            res.end('nacl.im\n');
+        } else {
+            res.writeHead(404);
+            res.end(http.STATUS_CODES[404]);
+        }
+    }).listen(port, hostname);
+    console.log('nacl.im running at http://%s:%s/', hostname, port);
+}
 
-http.createServer(function (req, res) {
-    console.log(req.method, req.headers.host, req.url);
-    console.log(req.headers);
-    res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end('nacl.im\n');
-}).listen(8000, '0.0.0.0');
-console.log('nacl.im running at http://0.0.0.0:8000/');
+
+var s3bucket = new AWS.S3({params: {Bucket: 'nacl.im'}});
+s3bucket.createBucket(function() {
+    var data = {Key: 'myKey', Body: 'Hello!'};
+    s3bucket.putObject(data, function(err, data) {
+        if (err) {
+            console.log("Error uploading data: ", err);
+        } else {
+            console.log("Successfully uploaded data to myBucket/myKey");
+        }
+    });
+});
