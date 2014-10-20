@@ -1,46 +1,55 @@
+var http = require('http');
+var lib = require('./lib');
 var bignum = require('bignum');
 
 
-
-var p_size = 1024;
-//should make sure these are strong and aren't too close... (but probably won't)
-var p = bignum.prime(p_size);
-console.log('p', p);
-var q = bignum.prime(p_size);
-console.log('q', q);
-var n = bignum.mul(p, q);
-console.log('n', n);
-var t = bignum.mul(p.sub(1), q.sub(1));
-console.log('t', t);
-var e = bignum(0x10001);
-console.log('e', e);
-var d = e.invertm(t);
-console.log('d', d);
-var d_p = d.mod(p.sub(1));
-console.log('d_p', d_p);
-var d_q = d.mod(q.sub(1));
-console.log('d_q', d_q);
-var q_inv = q.invertm(p);
-console.log('q_inv', q_inv);
+var rsa = new lib.RSA();
+rsa.generate(512);
+console.log(rsa.n);
 
 
-var message = bignum.fromBuffer(new Buffer("I can haz world?"));
-console.time("encryption");
-var c = bignum.powm(message, e, n);
-console.timeEnd("encryption");
-console.log(c);
-
-console.time("simple decryption");
-var m = bignum.powm(c, d, n);
-console.timeEnd("simple decryption");
-console.log(m.toBuffer().toString());
 
 
-console.time("efficient decryption");
-var m1 = bignum.powm(c, d_p, p);
-var m2 = bignum.powm(c, d_q, q);
-var h = q_inv.mul(m1.sub(m2)).mod(p);
-var m = m2.add(h.mul(q));
-console.timeEnd("efficient decryption");
-console.log(m.toBuffer().toString());
+function post_key(callback) {
+    var quote = "Those who would give up essential Liberty, to purchase a little temporary Safety, deserve neither Liberty nor Safety.";
+    var message = lib.str_to_num(quote);
+    var proof = rsa.decrypt(message).toBuffer();
+    var proof_len = new Buffer(2);
+    proof_len.writeUInt16BE(proof.length, 0);
+    var key = rsa.n.toBuffer();
+    var key_len = new Buffer(2);
+    key_len.writeUInt16BE(key.length, 0);
+    var initial_post = Buffer.concat([key_len, key, proof_len, proof]);
 
+    var req = http.request({
+        hostname: "0.0.0.0",
+        port: 8000,
+        path: "/",
+        method: "POST"
+    }, function (res) {
+        lib.collect_and_call(res, callback);
+    });
+    req.write(initial_post);
+    req.end();
+}
+
+function get_key(short_key, callback) {
+    http.get({
+        hostname: "0.0.0.0",
+        port: 8000,
+        path: "/" + short_key
+    }, function (res) {
+        lib.collect_and_call(res, callback);
+    });
+}
+
+
+post_key(function (err, buffer) {
+    if (err) throw err;
+    var obj = JSON.parse(buffer.toString());
+    get_key(obj.short_key, function (err, buffer) {
+        if (err) throw err;
+        var key = bignum.fromBuffer(new Buffer(JSON.parse(buffer.toString()).Body));
+        console.log(key);
+    });
+});
