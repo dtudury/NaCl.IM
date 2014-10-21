@@ -38,23 +38,7 @@ PUT.prototype.test_collision = function () {
 };
 
 PUT.prototype.on_test_collision = function (err, data) {
-    console.log("err", err);
-    console.log("data", data);
-    console.log("data !== null", data !== null);
-    if (data) {
-        console.log("dropping out");
-        return this.callback(new Error("short_key already in database"));
-    }
-    this.create_bucket();
-};
-
-PUT.prototype.create_bucket = function () {
-    var data = {Bucket: this.bucket};
-    lib.s3.createBucket(data, this.on_create_bucket.bind(this));
-};
-
-PUT.prototype.on_create_bucket = function (err, data) {
-    if (err) return this.callback(new Error("Error creatint bucket: ", err.message));
+    if (data) return this.callback(new Error("short_key already in database"));
     this.save_key();
 };
 
