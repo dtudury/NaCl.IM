@@ -20,7 +20,7 @@ module.exports = function(port, hostname) {
             var key = req.url.match(/[^\/]*$/)[0];
             return get(key, function (err, obj) {
                 if (err) lib.respond_err(res, err);
-                else lib.respond_json(res, obj);
+                else lib.respond_octet_stream(res, obj);
             });
             /*
         } else if (req.method === "PUT" || req.url.match(/^\/put\//i)) {

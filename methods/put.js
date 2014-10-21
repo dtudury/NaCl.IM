@@ -18,6 +18,7 @@ PUT.prototype.parse_buffer = function () {
     this.key_buf = this.buffer.slice(offset, offset += key_len);
     this.key = bignum.fromBuffer(this.key_buf);
     this.short_key = this.key_buf.slice(this.key_buf.length - 6).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
+    this.bucket = "nacl.im/" + this.short_key;
     var proof_len = this.buffer.readUInt16BE(offset);
     offset += 2;
     this.proof = bignum.fromBuffer(this.buffer.slice(offset, offset += proof_len));
@@ -32,18 +33,38 @@ PUT.prototype.test_proof = function () {
 };
 
 PUT.prototype.test_collision = function () {
-    var data = {Key: this.short_key};
-    lib.s3bucket.headObject(data, this.on_test_collision.bind(this));
+    var data = {Bucket: this.bucket};
+    lib.s3.headBucket(data, this.on_test_collision.bind(this));
 };
 
 PUT.prototype.on_test_collision = function (err, data) {
-    if (data) return this.callback(new Error("short_key already in database"));
+    console.log("err", err);
+    console.log("data", data);
+    console.log("data !== null", data !== null);
+    if (data) {
+        console.log("dropping out");
+        return this.callback(new Error("short_key already in database"));
+    }
+    this.create_bucket();
+};
+
+PUT.prototype.create_bucket = function () {
+    var data = {Bucket: this.bucket};
+    lib.s3.createBucket(data, this.on_create_bucket.bind(this));
+};
+
+PUT.prototype.on_create_bucket = function (err, data) {
+    if (err) return this.callback(new Error("Error creatint bucket: ", err.message));
     this.save_key();
 };
 
 PUT.prototype.save_key = function () {
-    var data = {Key: this.short_key, Body: this.key_buf};
-    lib.s3bucket.putObject(data, this.on_save_key.bind(this));
+    var data = {
+        Bucket: this.bucket,
+        Key: "public_key", 
+        Body: this.key_buf
+    };
+    lib.s3.putObject(data, this.on_save_key.bind(this));
 };
 
 PUT.prototype.on_save_key = function (err, data) {

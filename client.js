@@ -27,7 +27,7 @@ function post_key(callback) {
         path: "/",
         method: "POST"
     }, function (res) {
-        lib.collect_and_call(res, callback);
+        lib.collect_and_call(res, callback, res);
     });
     req.write(initial_post);
     req.end();
@@ -39,8 +39,11 @@ function get_key(short_key, callback) {
         port: 8000,
         path: "/" + short_key
     }, function (res) {
-        lib.collect_and_call(res, callback);
+        lib.collect_and_call(res, callback, res);
     });
+}
+
+function connect(callback) {
 }
 
 
@@ -49,7 +52,18 @@ post_key(function (err, buffer) {
     var obj = JSON.parse(buffer.toString());
     get_key(obj.short_key, function (err, buffer) {
         if (err) throw err;
-        var key = bignum.fromBuffer(new Buffer(JSON.parse(buffer.toString()).Body));
+        var key = bignum.fromBuffer(buffer);
         console.log(key);
+
+        connect(function (connection) {
+        });
+
+        /*
+        post_key(function (err, buffer, res) {
+            if (Math.floor(res.statusCode / 100) !== 2) throw new Error(buffer.toString());
+            if (err) throw err;
+            console.log(err, buffer.toString());
+        });
+        */
     });
 });
